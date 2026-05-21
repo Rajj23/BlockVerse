@@ -1,0 +1,43 @@
+# ── Backend (Java / Maven / Spring Boot) ──────────────────────────────────────
+backend/target/
+backend/*.class
+backend/*.jar
+backend/*.war
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/.idea/
+backend/*.iml
+backend/.env
+
+# ── Frontend (Node / Next.js) ─────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnp
+frontend/.pnp.js
+frontend/tsconfig.tsbuildinfo
+
+# ── Root env & secrets ────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Temp: old pre-restructure folders (will be deleted after push) ───────────
+Notion/
+Notion_frontend/
+
+# Keep docker-compose.yml tracked, ignore override files
+docker-compose.override.yml
