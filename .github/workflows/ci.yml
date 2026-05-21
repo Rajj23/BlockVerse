@@ -1,0 +1,204 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# BlockVerse CI/CD Pipeline
+#
+# Jobs:
+#   1. backend-ci   — Compile + unit/integration tests (Java 21, H2, embedded Kafka)
+#   2. frontend-ci  — Type-check + Next.js production build
+#   3. docker-push  — Build & push images to GHCR (main branch only, after CI passes)
+#
+# Required GitHub Secrets (Settings → Secrets → Actions):
+#   NEXT_PUBLIC_API_BASE_URL  — e.g. https://api.blockverse.yourdomain.com
+#   NEXT_PUBLIC_WS_URL        — e.g. https://api.blockverse.yourdomain.com/ws
+#   GITHUB_TOKEN              — auto-provided, no setup needed
+# ──────────────────────────────────────────────────────────────────────────────
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE:  ghcr.io/${{ github.repository_owner }}/blockverse-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/blockverse-frontend
+
+# Cancel in-progress runs on the same branch to save CI minutes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Job 1: Backend CI ───────────────────────────────────────────────────────
+  backend-ci:
+    name: 🔧 Backend — Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven          # Caches ~/.m2 based on pom.xml hash
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Build & run tests
+        run: ./mvnw verify -B -Dspring.profiles.active=test
+        env:
+          # Required for Java 21 preview features used in the codebase.
+          # JAVA_TOOL_OPTIONS is picked up by Maven, Surefire (test JVM), and all child JVMs.
+          JAVA_TOOL_OPTIONS: "--enable-preview"
+          # Dummy values so Spring context loads; tests use H2 + embedded Kafka
+          JWT_SECRET: "ci-test-secret-key-must-be-at-least-64-characters-long-for-HS512-algo!!"
+          AWS_ACCESS_KEY_ID: "dummy"
+          AWS_SECRET_ACCESS_KEY: "dummy"
+          AWS_REGION: "us-east-1"
+          AWS_S3_BUCKET: "dummy-bucket"
+
+      - name: Upload test reports
+        if: always()                  # Upload even on failure for debugging
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  # ── Job 2: Frontend CI ──────────────────────────────────────────────────────
+  frontend-ci:
+    name: 🎨 Frontend — Type Check & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Cache the global npm cache directory.
+      # Key is based on package.json (not package-lock.json) because the lockfile
+      # is Windows-generated and we intentionally skip it to get Linux-native binaries.
+      - name: Cache npm packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('frontend/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        # npm install (not npm ci) — the lockfile was generated on Windows and
+        # omits linux-specific optional deps like lightningcss-linux-x64-gnu
+        # used by Tailwind CSS v4. Without the lockfile npm resolves the
+        # correct platform binaries fresh.
+        run: npm install
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build (Next.js production)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          # Placeholder values — NEXT_PUBLIC_* vars are baked in at build time.
+          # Production values are injected as build-args in the docker-push job.
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+          NEXT_PUBLIC_WS_URL: http://localhost:8080/ws
+
+  # ── Job 3: Build & Push Docker Images ──────────────────────────────────────
+  docker-push:
+    name: 🐳 Build & Push Docker Images
+    needs: [backend-ci, frontend-ci]
+    # Only runs on direct pushes to main (not on PRs)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # Required to push to ghcr.io
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Backend Image ────────────────────────────────────────────────────────
+      - name: Extract metadata — Backend
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build & push — Backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags:   ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          # GHA layer cache — dramatically speeds up subsequent builds
+          cache-from: type=gha,scope=backend
+          cache-to:   type=gha,scope=backend,mode=max
+
+      # ── Frontend Image ───────────────────────────────────────────────────────
+      - name: Extract metadata — Frontend
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+
+      - name: Build & push — Frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags:   ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          # Inject production API URLs at build time (NEXT_PUBLIC_* baked into bundle)
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+            NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
+          cache-from: type=gha,scope=frontend
+          cache-to:   type=gha,scope=frontend,mode=max
+
+      # ── Summary ─────────────────────────────────────────────────────────────
+      - name: Print image tags
+        run: |
+          echo "### 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | Tags |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend  | \`${{ steps.meta-backend.outputs.tags }}\` |"  >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | \`${{ steps.meta-frontend.outputs.tags }}\` |" >> $GITHUB_STEP_SUMMARY
