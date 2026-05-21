@@ -35,9 +35,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# ── Temp: old pre-restructure folders (will be deleted after push) ───────────
-Notion/
-Notion_frontend/
-
+# ── Docker ────────────────────────────────────────────────────────────────────
 # Keep docker-compose.yml tracked, ignore override files
 docker-compose.override.yml
