@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blockverse-backend
+  namespace: blockverse
+  labels:
+    app: blockverse-backend
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: blockverse-backend
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: blockverse-backend
+        tier: backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      serviceAccountName: blockverse-backend-sa
+      containers:
+        - name: backend
+          image: 313694531077.dkr.ecr.ap-south-1.amazonaws.com/blockverse-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: "384Mi"
+              cpu: "250m"
+            limits:
+              memory: "768Mi"
+              cpu: "750m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 45
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          env:
+            # Database Properties
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: db-password
+            
+            # Redis Properties
+            - name: SPRING_DATA_REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: SPRING_DATA_REDIS_HOST
+            - name: SPRING_DATA_REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: SPRING_DATA_REDIS_PORT
+            - name: SPRING_DATA_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: redis-password
+                  
+            # Kafka Properties
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: SPRING_KAFKA_BOOTSTRAP_SERVERS
+                  
+            # JWT Security
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: jwt-secret
+                  
+            # AWS S3 Integration
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: aws-secret-access-key
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: AWS_REGION
+            - name: AWS_S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: AWS_S3_BUCKET
+                  
+            # Active Spring Profile
+            - name: SPRING_PROFILES_ACTIVE
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: SPRING_PROFILES_ACTIVE
