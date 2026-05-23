@@ -17,6 +17,18 @@ interface BlockItemProps {
   sendTyping: (blockId: number, action: "typing" | "stopped") => void;
 }
 
+const flattenBlocks = (blocksList: BlockResponse[]): BlockResponse[] => {
+  const result: BlockResponse[] = [];
+  const traverse = (b: BlockResponse) => {
+    result.push(b);
+    if (b.children && b.children.length > 0) {
+      b.children.forEach(traverse);
+    }
+  };
+  blocksList.forEach(traverse);
+  return result;
+};
+
 const blockStyles: Record<BlockType, string> = {
   PARAGRAPH: "text-base text-neutral-900 dark:text-neutral-100",
   HEADING1: "text-3xl font-bold text-neutral-900 dark:text-white",
@@ -48,7 +60,10 @@ export default function BlockItem({
   const [showTypeMenu, setShowTypeMenu] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const { updateBlock, removeBlock, version, setVersion } = useDocumentStore();
+  const {
+    blocks, updateBlock, removeBlock, version, setVersion,
+    focusedBlockId, setFocusedBlockId
+  } = useDocumentStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   
@@ -58,6 +73,20 @@ export default function BlockItem({
       textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
     }
   }, [content]);
+
+  // Sync content state when block prop changes externally (e.g. WebSockets)
+  useEffect(() => {
+    setContent(block.content || "");
+  }, [block.content]);
+
+  // Sync local textarea focus to focusedBlockId in the Zustand store
+  useEffect(() => {
+    if (focusedBlockId === block.id && textareaRef.current) {
+      textareaRef.current.focus();
+      const len = textareaRef.current.value.length;
+      textareaRef.current.setSelectionRange(len, len);
+    }
+  }, [focusedBlockId, block.id]);
 
   const handleImageUpload = async (file: File) => {
     const formData = new FormData();
@@ -120,15 +149,47 @@ export default function BlockItem({
       e.preventDefault();
       onAddBelow(block.id, block.parentId ?? undefined);
     }
+
+    const flatBlocks = flattenBlocks(blocks);
+    const currentIndex = flatBlocks.findIndex((b) => b.id === block.id);
+
     if (e.key === "Backspace" && content === "") {
+      e.preventDefault();
       handleDelete();
+    }
+
+    if (e.key === "ArrowUp") {
+      if (currentIndex > 0) {
+        e.preventDefault();
+        setFocusedBlockId(flatBlocks[currentIndex - 1].id);
+      }
+    }
+
+    if (e.key === "ArrowDown") {
+      if (currentIndex < flatBlocks.length - 1) {
+        e.preventDefault();
+        setFocusedBlockId(flatBlocks[currentIndex + 1].id);
+      }
     }
   };
 
   const handleDelete = async () => {
     try {
+      const flatBlocks = flattenBlocks(blocks);
+      const currentIndex = flatBlocks.findIndex((b) => b.id === block.id);
+      let nextFocusId: number | null = null;
+      if (currentIndex > 0) {
+        nextFocusId = flatBlocks[currentIndex - 1].id;
+      }
+
       await blockApi.delete(block.id, { documentVersion: version });
       removeBlock(block.id);
+
+      if (nextFocusId !== null) {
+        setFocusedBlockId(nextFocusId);
+      } else {
+        setFocusedBlockId(null);
+      }
     } catch (err: unknown) {
       const e = err as { response?: { status?: number } };
       if (e?.response?.status === 429) {
@@ -161,7 +222,7 @@ export default function BlockItem({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {}
+      {/* Sidebar controls: drag handle + delete */}
       <div className={clsx(
         "flex items-center gap-0.5 mt-1 transition-opacity shrink-0",
         hovered ? "opacity-100" : "opacity-0"
@@ -177,9 +238,9 @@ export default function BlockItem({
         </button>
       </div>
 
-      {}
-      <div className="flex-1 relative">
-        {}
+      {/* Block content area */}
+      <div className="flex-1 relative" onClick={() => setFocusedBlockId(block.id)}>
+        {/* TODO checkbox */}
         {block.type === "TODO" && (
           <input
             type="checkbox"
@@ -187,11 +248,12 @@ export default function BlockItem({
           />
         )}
 
-        {}
+        {/* Bullet marker */}
         {block.type === "BULLET" && (
           <span className="absolute left-0 top-1 text-neutral-400 text-lg leading-none">•</span>
         )}
 
+        {/* IMAGE block: show uploader or image preview */}
         {block.type === "IMAGE" ? (
           <div className="w-full">
             {block.content || block.fileUrl ? (
@@ -221,17 +283,36 @@ export default function BlockItem({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) handleImageUpload(file);
               }}
             />
-            </div>
-          ) : (
-            <div>{block.content}</div>
-          )}
+          </div>
+        ) : (
+          /* All other block types: editable textarea */
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setFocusedBlockId(block.id)}
+            placeholder={blockPlaceholders[block.type]}
+            rows={1}
+            className={clsx(
+              "w-full bg-transparent border-none outline-none resize-none leading-relaxed",
+              "placeholder-neutral-300 dark:placeholder-neutral-600",
+              block.type === "TODO" && "pl-6",
+              block.type === "BULLET" && "pl-5",
+              block.type === "NUMBERED" && "pl-6",
+              blockStyles[block.type]
+            )}
+          />
+        )}
 
-          {showTypeMenu && (
+        {/* Block type selector menu — shown when user types "/" */}
+        {showTypeMenu && (
           <div className="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 z-50 overflow-hidden">
             <div className="px-3 py-2 text-xs text-neutral-400 border-b border-neutral-100 dark:border-neutral-700">
               Block type
@@ -250,6 +331,7 @@ export default function BlockItem({
         )}
       </div>
 
+      {/* Nested child blocks */}
       {block.children && block.children.length > 0 && (
         <div className="pl-6 mt-1 border-l-2 border-neutral-100 dark:border-neutral-800 w-full">
           {block.children.map((child) => (

@@ -56,8 +56,7 @@ docker-compose up -d
 ```
 
 This spins up:
-- Zookeeper on `:2181`
-- Kafka broker on `:9092`
+- Kafka broker in KRaft mode on `:9092` (no ZooKeeper needed, saving RAM!)
 
 ### 2. Configure Environment
 

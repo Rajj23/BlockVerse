@@ -17,7 +17,8 @@ export const useDocumentSocket = (documentId: number) => {
 
     const client = new Client({
       webSocketFactory: () =>
-        new SockJS(process.env.NEXT_PUBLIC_WS_URL || "http://localhost:8080/ws"),
+        new SockJS(typeof window !== "undefined" ? `${window.location.origin}/ws` : "/ws"),
+
       reconnectDelay: 3000,
       onConnect: () => {
         

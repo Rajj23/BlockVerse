@@ -6,7 +6,7 @@ import {
 
 export const workspaceApi = {
   create: (data: WorkSpaceCreateRequest) =>
-    api.post<string>("/v1/workspaces/", data),
+    api.post<string>("/v1/workspaces", data),
 
   delete: (id: number) =>
     api.delete(`/v1/workspaces/${id}`),

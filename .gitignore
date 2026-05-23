@@ -26,6 +26,13 @@ frontend/tsconfig.tsbuildinfo
 .env
 .env.local
 .env.*.local
+*.pem
+*.key
+id_ed25519*
+id_rsa*
+secrets/
+credentials/
+.aws/
 
 # ── OS / Editor ───────────────────────────────────────────────────────────────
 .DS_Store
@@ -38,3 +45,14 @@ Thumbs.db
 # ── Docker ────────────────────────────────────────────────────────────────────
 # Keep docker-compose.yml tracked, ignore override files
 docker-compose.override.yml
+
+# ── Terraform ─────────────────────────────────────────────────────────────────
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+terraform/tfplan
+
+# ── Local planning & notes (not for Git) ──────────────────────────────────────
+DEVOPS_PLAN.md

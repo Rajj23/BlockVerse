@@ -23,7 +23,7 @@ export default function BlockEditor({ documentId, workspaceId }: BlockEditorProp
   const {
     document, blocks, version,
     setDocument, setBlocks, addBlock,
-    activeUsers, setVersion
+    activeUsers, setVersion, setFocusedBlockId
   } = useDocumentStore();
 
   const [loading, setLoading] = useState(true);
@@ -66,6 +66,7 @@ export default function BlockEditor({ documentId, workspaceId }: BlockEditorProp
         documentVersion: version,
       });
       addBlock(data);
+      setFocusedBlockId(data.id);
       const docRes = await documentApi.get(documentId);
       setVersion(docRes.data.version);
     } catch (err: unknown) {
@@ -92,9 +93,24 @@ export default function BlockEditor({ documentId, workspaceId }: BlockEditorProp
       </div>
 
       {}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-8 py-10">
-          {}
+      <div
+        className="flex-1 overflow-y-auto"
+        onClick={() => {
+          if (blocks.length === 0) {
+            handleAddBelow(0);
+          } else {
+            const lastBlock = topLevelBlocks[topLevelBlocks.length - 1];
+            if (lastBlock) {
+              setFocusedBlockId(lastBlock.id);
+            }
+          }
+        }}
+      >
+        <div
+          className="max-w-3xl mx-auto px-8 py-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Active Users */}
           {activeUsers.filter((u) => u.userId !== user?.id).length > 0 && (
             <div className="flex items-center gap-2 mb-6">
               <Users className="w-4 h-4 text-neutral-400" />
@@ -125,12 +141,25 @@ export default function BlockEditor({ documentId, workspaceId }: BlockEditorProp
             </div>
           ) : (
             <>
-              {}
+              {/* Title */}
               <div className="relative group/title mb-8">
                 <textarea
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   onBlur={handleTitleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (blocks.length === 0) {
+                        handleAddBelow(0);
+                      } else {
+                        const firstBlock = topLevelBlocks[0];
+                        if (firstBlock) {
+                          setFocusedBlockId(firstBlock.id);
+                        }
+                      }
+                    }
+                  }}
                   placeholder="Untitled"
                   rows={1}
                   className="w-full text-4xl font-bold text-neutral-900 dark:text-white bg-transparent border-none outline-none resize-none placeholder-neutral-300 dark:placeholder-neutral-700 leading-tight"
@@ -140,7 +169,7 @@ export default function BlockEditor({ documentId, workspaceId }: BlockEditorProp
                 )}
               </div>
 
-              {}
+              {/* Blocks */}
               <div className="space-y-0.5">
                 {topLevelBlocks.length === 0 ? (
                   <button

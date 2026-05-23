@@ -18,7 +18,7 @@ public class WorkSpaceController {
     
     private final WorkSpaceService workSpaceService;
     
-    @PostMapping("/")
+    @PostMapping
     public ResponseEntity<String> createWorkSpace(@Valid @RequestBody WorkSpaceCreateRequest request){
         return ResponseEntity.ok(workSpaceService.createWorkSpace(request));
     }

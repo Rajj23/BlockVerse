@@ -5,11 +5,13 @@ interface DocumentState {
   document: DocumentResponse | null;
   blocks: BlockResponse[];
   version: number;
+  focusedBlockId: number | null;
   activeUsers: { userId: number; userName: string }[];
   typingUsers: { userId: number; blockId: number }[];
   setDocument: (doc: DocumentResponse) => void;
   setBlocks: (blocks: BlockResponse[]) => void;
   setVersion: (version: number) => void;
+  setFocusedBlockId: (id: number | null) => void;
   addBlock: (block: BlockResponse) => void;
   updateBlock: (blockId: number, updated: Partial<BlockResponse>) => void;
   removeBlock: (blockId: number) => void;
@@ -23,12 +25,14 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   document: null,
   blocks: [],
   version: 0,
+  focusedBlockId: null,
   activeUsers: [],
   typingUsers: [],
 
   setDocument: (document) => set({ document, version: document.version }),
   setBlocks: (blocks) => set({ blocks }),
   setVersion: (version) => set({ version }),
+  setFocusedBlockId: (focusedBlockId) => set({ focusedBlockId }),
 
   addBlock: (block) =>
     set((state) => ({ blocks: [...state.blocks, block] })),

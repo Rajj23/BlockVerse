@@ -124,16 +124,7 @@ spec:
                   key: jwt-secret
                   
             # AWS S3 Integration
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: blockverse-secrets
-                  key: aws-access-key-id
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: blockverse-secrets
-                  key: aws-secret-access-key
+            # NOTE: No explicit AWS keys needed — EC2 instance profile provides access automatically
             - name: AWS_REGION
               valueFrom:
                 configMapKeyRef:

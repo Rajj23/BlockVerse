@@ -7,8 +7,6 @@ networks:
 volumes:
   mysql-data:
   redis-data:
-  zookeeper-data:
-  zookeeper-log:
   kafka-data:
 
 services:
@@ -59,28 +57,6 @@ services:
       retries: 5
       start_period: 10s
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: blockverse-zookeeper
-    restart: unless-stopped
-    ports:
-      - "${ZOOKEEPER_PORT:-2181}:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME:   2000
-      ZOOKEEPER_SYNC_LIMIT:  2
-    volumes:
-      - zookeeper-data:/var/lib/zookeeper/data
-      - zookeeper-log:/var/lib/zookeeper/log
-    networks:
-      - blockverse-net
-    healthcheck:
-      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181 | grep imok"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: blockverse-kafka
@@ -88,20 +64,25 @@ services:
     ports:
       - "${KAFKA_EXTERNAL_PORT:-9092}:9092"
       - "29092:29092"
-    depends_on:
-      zookeeper:
-        condition: service_healthy
     environment:
-      KAFKA_BROKER_ID:                                1
-      KAFKA_ZOOKEEPER_CONNECT:                        zookeeper:2181
-      KAFKA_LISTENERS:                                PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092
+      # KRaft Mode Configurations (No Zookeeper!)
+      KAFKA_NODE_ID:                                  1
+      KAFKA_PROCESS_ROLES:                            broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS:                 1@kafka:29093
+      KAFKA_LISTENERS:                                PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093
       KAFKA_ADVERTISED_LISTENERS:                     PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:           PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES:                CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP:           PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME:               INTERNAL
+      KAFKA_CLUSTER_ID:                               4L62xOb2TGWmqsIlxTRQZQ
+      CLUSTER_ID:                                     4L62xOb2TGWmqsIlxTRQZQ
+      
+      # Resource Optimization
+      KAFKA_JVM_PERFORMANCE_OPTS:                     -Xms256M -Xmx512M -XX:+UseG1GC
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR:         1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR:            1
-      KAFKA_LOG_RETENTION_HOURS:                      168
+      KAFKA_LOG_RETENTION_HOURS:                      24
       KAFKA_AUTO_CREATE_TOPICS_ENABLE:                "true"
     volumes:
       - kafka-data:/var/lib/kafka/data
@@ -117,7 +98,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: ../docker/backend/Dockerfile
     image: blockverse-backend:latest
     container_name: blockverse-backend
     restart: unless-stopped
@@ -162,7 +143,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: ../docker/frontend/Dockerfile
     image: blockverse-frontend:latest
     container_name: blockverse-frontend
     restart: unless-stopped
@@ -172,9 +153,8 @@ services:
       backend:
         condition: service_healthy
     environment:
-      NODE_ENV:                 production
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://backend:8080}
-      NEXT_PUBLIC_WS_URL:       ${NEXT_PUBLIC_WS_URL:-http://backend:8080/ws}
+      NODE_ENV:    production
+      BACKEND_URL: http://backend:8080
     networks:
       - blockverse-net
 
@@ -187,12 +167,9 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-      zookeeper:
-        condition: service_healthy
     environment:
       KAFKA_CLUSTERS_0_NAME:             blockverse
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
-      KAFKA_CLUSTERS_0_ZOOKEEPER:        zookeeper:2181
       DYNAMIC_CONFIG_ENABLED:            "true"
     networks:
       - blockverse-net
