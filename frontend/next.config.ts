@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     // BACKEND_URL is resolved server-side (inside Docker: http://backend:8080)
     // The browser never sees the backend URL — all requests go to the same origin.
-    const backendUrl = process.env.BACKEND_URL || "http://backend:8080";
+    const backendUrl = process.env.BACKEND_URL || "http://blockverse-backend:8080";
     return [
       {
         // Proxy all /api/* calls → backend (strips /api prefix)
