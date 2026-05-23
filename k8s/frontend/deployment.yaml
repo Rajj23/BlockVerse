@@ -70,6 +70,8 @@ spec:
               value: "3000"
             - name: HOSTNAME
               value: "0.0.0.0"
+            - name: BACKEND_URL
+              value: "http://blockverse-backend:8080"
             - name: NEXT_PUBLIC_API_BASE_URL
               valueFrom:
                 configMapKeyRef:
