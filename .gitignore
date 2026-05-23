@@ -54,5 +54,6 @@ terraform/terraform.tfstate.backup
 terraform/*.tfvars
 terraform/tfplan
 
-# ── Local planning & notes (not for Git) ──────────────────────────────────────
-DEVOPS_PLAN.md
+# ── Kubernetes secrets (never commit these) ───────────────────────────────────
+k8s/secrets.yaml
+

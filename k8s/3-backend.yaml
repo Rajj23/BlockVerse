@@ -1,32 +1,22 @@
+# ── 3-backend.yaml ────────────────────────────────────────────────────────────
+# Spring Boot backend — Deployment, Service, and HPA.
+# ──────────────────────────────────────────────────────────────────────────────
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: blockverse-backend
   namespace: blockverse
-  labels:
-    app: blockverse-backend
-    tier: backend
 spec:
   replicas: 1
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
   selector:
     matchLabels:
       app: blockverse-backend
-      tier: backend
   template:
     metadata:
       labels:
         app: blockverse-backend
-        tier: backend
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
       serviceAccountName: blockverse-backend-sa
       containers:
         - name: backend
@@ -34,13 +24,6 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
-              name: http
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            capabilities:
-              drop:
-                - ALL
           resources:
             requests:
               memory: "384Mi"
@@ -54,7 +37,6 @@ spec:
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 15
-            timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             httpGet:
@@ -62,10 +44,9 @@ spec:
               port: 8080
             initialDelaySeconds: 45
             periodSeconds: 10
-            timeoutSeconds: 5
             failureThreshold: 2
           env:
-            # Database Properties
+            # Database
             - name: DB_HOST
               valueFrom:
                 configMapKeyRef:
@@ -91,8 +72,7 @@ spec:
                 secretKeyRef:
                   name: blockverse-secrets
                   key: db-password
-            
-            # Redis Properties
+            # Redis
             - name: SPRING_DATA_REDIS_HOST
               valueFrom:
                 configMapKeyRef:
@@ -108,23 +88,19 @@ spec:
                 secretKeyRef:
                   name: blockverse-secrets
                   key: redis-password
-                  
-            # Kafka Properties
+            # Kafka
             - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
               valueFrom:
                 configMapKeyRef:
                   name: blockverse-config
                   key: SPRING_KAFKA_BOOTSTRAP_SERVERS
-                  
-            # JWT Security
+            # JWT
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: blockverse-secrets
                   key: jwt-secret
-                  
-            # AWS S3 Integration
-            # NOTE: No explicit AWS keys needed — EC2 instance profile provides access automatically
+            # AWS S3
             - name: AWS_REGION
               valueFrom:
                 configMapKeyRef:
@@ -135,10 +111,46 @@ spec:
                 configMapKeyRef:
                   name: blockverse-config
                   key: AWS_S3_BUCKET
-                  
-            # Active Spring Profile
+            # Spring Profile
             - name: SPRING_PROFILES_ACTIVE
               valueFrom:
                 configMapKeyRef:
                   name: blockverse-config
                   key: SPRING_PROFILES_ACTIVE
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: blockverse-backend
+  namespace: blockverse
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: blockverse-backend
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: blockverse-backend-hpa
+  namespace: blockverse
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: blockverse-backend
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75

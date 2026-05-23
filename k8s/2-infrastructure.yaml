@@ -1,18 +1,90 @@
+# ── 2-infrastructure.yaml ─────────────────────────────────────────────────────
+# Redis (cache) and Kafka (message broker) — apply AFTER setup.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: blockverse-redis
+  namespace: blockverse
+spec:
+  ports:
+    - port: 6379
+  selector:
+    app: blockverse-redis
+
+---
+
+# Redis StatefulSet (data is persisted to a 1Gi volume)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: blockverse-redis
+  namespace: blockverse
+spec:
+  serviceName: "blockverse-redis"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blockverse-redis
+  template:
+    metadata:
+      labels:
+        app: blockverse-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          command:
+            - "sh"
+            - "-c"
+            - "redis-server --requirepass $(REDIS_PASSWORD) --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru"
+          ports:
+            - containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: blockverse-secrets
+                  key: redis-password
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+
+---
+
+# Kafka Service
 apiVersion: v1
 kind: Service
 metadata:
   name: blockverse-kafka
   namespace: blockverse
-  labels:
-    app: blockverse-kafka
 spec:
   ports:
     - port: 9092
-      targetPort: 9092
       name: kafka
   selector:
     app: blockverse-kafka
+
 ---
+
+# Kafka Deployment (KRaft mode — no Zookeeper needed)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,11 +105,8 @@ spec:
           image: confluentinc/cp-kafka:7.6.1
           ports:
             - containerPort: 9092
-              name: kafka
             - containerPort: 9093
-              name: controller
           env:
-            # KRaft Mode Configurations (No Zookeeper!)
             - name: KAFKA_NODE_ID
               value: "1"
             - name: KAFKA_PROCESS_ROLES
@@ -58,8 +127,6 @@ spec:
               value: "4L62xOb2TGWmqsIlxTRQZQ"
             - name: CLUSTER_ID
               value: "4L62xOb2TGWmqsIlxTRQZQ"
-            
-            # Cost-Optimized Resource Tunings
             - name: KAFKA_JVM_PERFORMANCE_OPTS
               value: "-Xms256M -Xmx512M -XX:+UseG1GC"
             - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
@@ -69,7 +136,7 @@ spec:
             - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
               value: "1"
             - name: KAFKA_LOG_RETENTION_HOURS
-              value: "24" # Reduce retention to save disk space
+              value: "24"
             - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
               value: "true"
           resources:
@@ -79,4 +146,3 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-

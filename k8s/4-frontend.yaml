@@ -1,0 +1,146 @@
+# ── 4-frontend.yaml ───────────────────────────────────────────────────────────
+# Next.js frontend — Deployment, Service, HPA, and Ingress routing.
+# ──────────────────────────────────────────────────────────────────────────────
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blockverse-frontend
+  namespace: blockverse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blockverse-frontend
+  template:
+    metadata:
+      labels:
+        app: blockverse-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: 313694531077.dkr.ecr.ap-south-1.amazonaws.com/blockverse-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 2
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            # Used by Next.js server-side proxy to reach the backend
+            - name: BACKEND_URL
+              value: "http://blockverse-backend:8080"
+            # Public API URL (visible in browser)
+            - name: NEXT_PUBLIC_API_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: NEXT_PUBLIC_API_BASE_URL
+            - name: NEXT_PUBLIC_WS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: blockverse-config
+                  key: NEXT_PUBLIC_WS_URL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: blockverse-frontend
+  namespace: blockverse
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: blockverse-frontend
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: blockverse-frontend-hpa
+  namespace: blockverse
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: blockverse-frontend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+
+# Ingress — routes incoming HTTP traffic to frontend or backend
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blockverse-ingress
+  namespace: blockverse
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  rules:
+    - http:
+        paths:
+          # WebSocket traffic → backend
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-backend
+                port:
+                  number: 8080
+          # REST API traffic → backend
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-backend
+                port:
+                  number: 8080
+          # Everything else → frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-frontend
+                port:
+                  number: 3000
