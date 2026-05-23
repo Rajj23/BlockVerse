@@ -54,7 +54,7 @@ public class WorkspaceControllerTest {
         
         when(workSpaceService.createWorkSpace(any())).thenReturn("Workspace created successfully");
 
-        mockMvc.perform(post("/v1/workspaces/")
+        mockMvc.perform(post("/v1/workspaces")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                         {
@@ -68,7 +68,7 @@ public class WorkspaceControllerTest {
     
     @Test
     void createWorkspace_shouldReturnBadRequestForInvalidInput() throws Exception {
-        mockMvc.perform(post("/v1/workspaces/")
+        mockMvc.perform(post("/v1/workspaces")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                         {

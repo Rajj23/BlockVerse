@@ -66,7 +66,7 @@ class FullFlowIntegrationTest {
 
         // ── Helper: create workspace, return its ID ──────────────────────────────
         private int createWorkspaceAndGetId(String token, String name, String type) throws Exception {
-                mockMvc.perform(post("/v1/workspaces/")
+                mockMvc.perform(post("/v1/workspaces")
                                 .header("Authorization", "Bearer " + token)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("""
@@ -180,7 +180,7 @@ class FullFlowIntegrationTest {
                                         .content("""
                                                         {"email": "alice@test.com", "password": "wrong"}
                                                         """))
-                                        .andExpect(status().isInternalServerError());
+                                        .andExpect(status().isUnauthorized());
                 }
 
                 @Test
@@ -215,7 +215,7 @@ class FullFlowIntegrationTest {
                 void createAndGetWorkspace() throws Exception {
                         String token = signupAndGetToken("Alice", "alice@test.com", "secret123");
 
-                        mockMvc.perform(post("/v1/workspaces/")
+                        mockMvc.perform(post("/v1/workspaces")
                                         .header("Authorization", "Bearer " + token)
                                         .contentType(MediaType.APPLICATION_JSON)
                                         .content("""

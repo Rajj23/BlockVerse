@@ -61,7 +61,7 @@ class SearchIntegrationTest {
     }
 
     private int createWorkspaceAndGetId(String token, String name, String type) throws Exception {
-        mockMvc.perform(post("/v1/workspaces/")
+        mockMvc.perform(post("/v1/workspaces")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
