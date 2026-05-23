@@ -54,6 +54,7 @@ terraform/terraform.tfstate.backup
 terraform/*.tfvars
 terraform/tfplan
 
-# ── Kubernetes secrets (never commit these) ───────────────────────────────────
+# ── Secrets (never commit these) ──────────────────────────────────────────────
 k8s/secrets.yaml
+terraform/secrets.tf
 
