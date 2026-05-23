@@ -54,7 +54,7 @@ resource "aws_security_group" "k3s_sg" {
 
 # ── SSH Key Pair ──────────────────────────────────────────────────────────────
 resource "aws_key_pair" "k3s_key" {
-  key_name   = "${local.name}-k3s-key"
+  key_name   = "${local.name}-k3s-key-v2"
   public_key = var.ssh_public_key
 
   tags = local.tags
