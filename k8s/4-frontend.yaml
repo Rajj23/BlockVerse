@@ -10,10 +10,12 @@ spec:
   selector:
     matchLabels:
       app: blockverse-frontend
+      tier: frontend
   template:
     metadata:
       labels:
         app: blockverse-frontend
+        tier: frontend
     spec:
       containers:
         - name: frontend

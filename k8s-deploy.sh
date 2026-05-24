@@ -11,12 +11,12 @@ echo "==> Connecting to $EC2_IP..."
 
 # Step 1: Copy all k8s manifests to the server
 echo "==> Copying k8s manifests..."
-scp -r -i "$SSH_KEY" -o StrictHostKeyChecking=no ./k8s "$REMOTE:/home/ubuntu/k8s"
+scp -r -i "$SSH_KEY" -o StrictHostKeyChecking=no ./k8s "$REMOTE:/home/ubuntu/"
 
 # Step 2: Apply the manifests on the server
 echo "==> Applying manifests on EC2..."
 ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE" bash << 'EOF'
-K="kubectl"
+K="sudo kubectl"
 
 echo "  [0/4] Preparing configurations and substituting placeholders..."
 # Retrieve AWS account ID and region dynamically on the EC2 server

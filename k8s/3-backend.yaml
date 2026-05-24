@@ -10,10 +10,12 @@ spec:
   selector:
     matchLabels:
       app: blockverse-backend
+      tier: backend
   template:
     metadata:
       labels:
         app: blockverse-backend
+        tier: backend
     spec:
       serviceAccountName: blockverse-backend-sa
       containers:

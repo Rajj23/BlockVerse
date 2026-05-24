@@ -54,11 +54,11 @@ spec:
               memory: "256Mi"
               cpu: "250m"
           volumeMounts:
-            - name: redis-data
+            - name: redis-persistent-storage
               mountPath: /data
   volumeClaimTemplates:
     - metadata:
-        name: redis-data
+        name: redis-persistent-storage
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
