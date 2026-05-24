@@ -1,0 +1,47 @@
+# Ingress — routes incoming HTTP traffic to frontend or backend
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: blockverse-ingress
+  namespace: blockverse
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Redirect HTTP traffic to HTTPS automatically
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  tls:
+    - hosts:
+        - <YOUR_DOMAIN_NAME>
+      secretName: blockverse-tls-secret
+  rules:
+    - host: <YOUR_DOMAIN_NAME>
+      http:
+        paths:
+          # WebSocket traffic → backend
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-backend
+                port:
+                  number: 8080
+          # REST API traffic → backend
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-backend
+                port:
+                  number: 8080
+          # Everything else → frontend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: blockverse-frontend
+                port:
+                  number: 3000

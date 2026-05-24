@@ -1,9 +1,5 @@
-# ── 1-setup.yaml ──────────────────────────────────────────────────────────────
-# Creates the namespace, service account, and config.
-# Apply this FIRST before anything else.
-#
-# NOTE: Secrets are in k8s/secrets.yaml (gitignored — do NOT commit that file).
-# ──────────────────────────────────────────────────────────────────────────────
+# Creates the namespace, service account, and config (applied first).
+# NOTE: Secrets are in k8s/secrets.yaml (gitignored).
 
 apiVersion: v1
 kind: Namespace
@@ -28,7 +24,7 @@ metadata:
   namespace: blockverse
 data:
   # Database
-  DB_HOST: "blockverse-production-mysql.ch2uwg2a80dc.ap-south-1.rds.amazonaws.com"
+  DB_HOST: "<AWS_RDS_ENDPOINT>"
   DB_PORT: "3306"
   DB_NAME: "blockverse"
   DB_USER: "dbadmin"
@@ -42,10 +38,10 @@ data:
 
   # AWS
   AWS_REGION: "ap-south-1"
-  AWS_S3_BUCKET: "blockverse-production-assets-bucket-yjpr1x6d"
+  AWS_S3_BUCKET: "<AWS_S3_BUCKET_NAME>"
 
   # Frontend public URLs
-  NEXT_PUBLIC_API_BASE_URL: "http://65.0.171.134"
-  NEXT_PUBLIC_WS_URL: "ws://65.0.171.134/ws"
+  NEXT_PUBLIC_API_BASE_URL: "http://<YOUR_DOMAIN_NAME>"
+  NEXT_PUBLIC_WS_URL: "ws://<YOUR_DOMAIN_NAME>/ws"
 
   SPRING_PROFILES_ACTIVE: "prod"

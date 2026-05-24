@@ -140,3 +140,44 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/blockverse-frontend:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # ── Job 4: Deploy to k3s on EC2 ────────────────────────────────────────────
+  # SSHs into EC2 and rolls out the newly-pushed images.
+  # Requires GitHub Secrets:
+  #   EC2_HOST            → <your-ec2-public-ip> (EC2 public IP / Elastic IP)
+  #   EC2_USER            → ubuntu
+  #   EC2_SSH_PRIVATE_KEY → contents of your SSH private key
+  deploy:
+    name: 🚀 Deploy — Rollout to k3s
+    needs: [ecr-push]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy new images to k3s via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          timeout: 120s
+          # Use sudo + explicit KUBECONFIG since ubuntu user lacks direct kubeconfig access
+          script: |
+            set -e
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+
+            echo "🔄 Rolling out new backend image..."
+            sudo kubectl rollout restart deployment/blockverse-backend -n blockverse
+
+            echo "🔄 Rolling out new frontend image..."
+            sudo kubectl rollout restart deployment/blockverse-frontend -n blockverse
+
+            echo "⏳ Waiting for backend rollout to complete..."
+            sudo kubectl rollout status deployment/blockverse-backend -n blockverse --timeout=180s
+
+            echo "⏳ Waiting for frontend rollout to complete..."
+            sudo kubectl rollout status deployment/blockverse-frontend -n blockverse --timeout=180s
+
+            echo "✅ Deployment complete!"
+            echo ""
+            echo "── Pod Status ──────────────────────────────────"
+            sudo kubectl get pods -n blockverse -o wide

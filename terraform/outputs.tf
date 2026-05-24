@@ -1,6 +1,4 @@
-# ── outputs.tf ────────────────────────────────────────────────────────────────
 # Values printed after `terraform apply` — useful references.
-# ──────────────────────────────────────────────────────────────────────────────
 
 output "app_url" {
   description = "Application URL"

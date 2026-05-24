@@ -1,8 +1,6 @@
-# ── 2-compute.tf ──────────────────────────────────────────────────────────────
 # Networking (VPC, subnets, routes) and the EC2 instance running k3s.
-# ──────────────────────────────────────────────────────────────────────────────
 
-# ── VPC ───────────────────────────────────────────────────────────────────────
+# VPC Configuration
 
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
@@ -71,7 +69,7 @@ resource "aws_route_table_association" "db_2" {
   route_table_id = aws_route_table.db.id
 }
 
-# ── EC2 / k3s ─────────────────────────────────────────────────────────────────
+# EC2 / k3s Setup
 
 # Security Group — open SSH, HTTP, HTTPS, and Kubernetes API
 resource "aws_security_group" "k3s_sg" {

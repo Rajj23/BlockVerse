@@ -1,0 +1,29 @@
+# ── monitoring/grafana-ingress.yaml ───────────────────────────────────────────
+# Exposes Grafana at https://grafana.blockverse.rajjaiswal.online
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-production"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  tls:
+    - hosts:
+        - grafana.blockverse.rajjaiswal.online
+      secretName: grafana-tls-secret
+  rules:
+    - host: grafana.blockverse.rajjaiswal.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-grafana         
+                port:
+                  number: 80

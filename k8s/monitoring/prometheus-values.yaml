@@ -1,0 +1,137 @@
+# ── monitoring/prometheus-values.yaml ─────────────────────────────────────────
+# Helm values for kube-prometheus-stack.
+# Tuned for c7i-flex.large (4 GB RAM) — keeps total overhead under 600 MB.
+#
+# Apply via:
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     -f k8s/monitoring/prometheus-values.yaml
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── Grafana ────────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+
+  initChownData:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 150Mi
+    limits:
+      cpu: 500m
+      memory: 300Mi
+
+  # Persist dashboards/settings across pod restarts
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: local-path   # k3s default storage class
+
+  # Pre-load community dashboards automatically
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+  dashboards:
+    default:
+      # Kubernetes cluster overview (nodes, pods, namespaces)
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+      # Pod resource usage (CPU/RAM per pod)
+      kubernetes-pods:
+        gnetId: 6417
+        revision: 1
+        datasource: Prometheus
+      # Node Exporter — host-level CPU, RAM, disk, network
+      node-exporter:
+        gnetId: 1860
+        revision: 37
+        datasource: Prometheus
+
+  # Grafana INI overrides
+  grafana.ini:
+    server:
+      root_url: "https://grafana.blockverse.rajjaiswal.online"
+    analytics:
+      reporting_enabled: false
+    security:
+      allow_embedding: true
+
+# ── Prometheus ─────────────────────────────────────────────────────────────────
+prometheus:
+  enabled: true
+  prometheusSpec:
+    # How long to keep metrics data
+    retention: 7d
+
+    # Scrape every 30s (default 15s is fine too, but 30s saves CPU on small nodes)
+    scrapeInterval: "30s"
+    evaluationInterval: "30s"
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 200Mi
+      limits:
+        cpu: 500m
+        memory: 400Mi
+
+    # Persist metrics on disk (prevent loss on pod restart)
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 5Gi
+
+    # Watch ALL namespaces for ServiceMonitors
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+
+# ── Alertmanager ───────────────────────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 40Mi
+      limits:
+        cpu: 100m
+        memory: 80Mi
+
+# ── Node Exporter (host metrics: CPU, RAM, disk, network) ─────────────────────
+nodeExporter:
+  enabled: true
+
+# ── Kube State Metrics (pod restarts, deployment health) ──────────────────────
+kubeStateMetrics:
+  enabled: true
+
+# ── Disable heavy components not needed on single-node k3s ────────────────────
+kubeEtcd:
+  enabled: false   # k3s uses kine (SQLite), not etcd
+
+kubeControllerManager:
+  enabled: false   # Not exposed in k3s
+
+kubeScheduler:
+  enabled: false   # Not exposed in k3s
+
+kubeProxy:
+  enabled: false   # Not exposed in k3s

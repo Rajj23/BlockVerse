@@ -1,6 +1,4 @@
-# ── 3-backend.yaml ────────────────────────────────────────────────────────────
 # Spring Boot backend — Deployment, Service, and HPA.
-# ──────────────────────────────────────────────────────────────────────────────
 
 apiVersion: apps/v1
 kind: Deployment
@@ -20,7 +18,7 @@ spec:
       serviceAccountName: blockverse-backend-sa
       containers:
         - name: backend
-          image: 313694531077.dkr.ecr.ap-south-1.amazonaws.com/blockverse-backend:latest
+          image: <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com/blockverse-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

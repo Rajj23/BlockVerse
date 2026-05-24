@@ -1,6 +1,4 @@
-# ── 1-config.tf ───────────────────────────────────────────────────────────────
 # Terraform settings, AWS provider, variables, and shared locals.
-# ──────────────────────────────────────────────────────────────────────────────
 
 terraform {
   required_version = ">= 1.5.0"
@@ -62,9 +60,9 @@ variable "db_password" {
 }
 
 variable "ec2_instance_type" {
-  description = "EC2 instance type. t3.small (2 vCPU, 2GB RAM) — runs k3s + Spring Boot + Next.js + Redis + Kafka."
+  description = "EC2 instance type. c7i-flex.large (2 vCPU, 4GB RAM) — runs k3s + Spring Boot + Next.js + Redis + Kafka."
   type        = string
-  default     = "t3.small"
+  default     = "c7i-flex.large"
 }
 
 variable "ssh_public_key" {

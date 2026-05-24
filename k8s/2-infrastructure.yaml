@@ -1,6 +1,4 @@
-# ── 2-infrastructure.yaml ─────────────────────────────────────────────────────
-# Redis (cache) and Kafka (message broker) — apply AFTER setup.
-# ──────────────────────────────────────────────────────────────────────────────
+# Redis (cache) and Kafka (message broker) — applied after setup.
 
 # Redis Service
 apiVersion: v1

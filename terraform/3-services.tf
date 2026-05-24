@@ -1,8 +1,6 @@
-# ── 3-services.tf ─────────────────────────────────────────────────────────────
 # All AWS managed services: ECR, S3, RDS, IAM roles, and Secrets Manager.
-# ──────────────────────────────────────────────────────────────────────────────
 
-# ── ECR (Container Registries) ────────────────────────────────────────────────
+# ECR (Container Registries)
 
 resource "aws_ecr_repository" "backend" {
   name                 = "blockverse-backend"
@@ -57,7 +55,7 @@ resource "aws_ecr_lifecycle_policy" "frontend" {
   policy     = local.ecr_lifecycle_policy
 }
 
-# ── S3 (Asset Storage) ────────────────────────────────────────────────────────
+# S3 (Asset Storage)
 
 resource "random_string" "bucket_suffix" {
   length  = 8
@@ -84,7 +82,7 @@ resource "aws_s3_bucket_versioning" "assets_versioning" {
   versioning_configuration { status = "Enabled" }
 }
 
-# ── RDS (MySQL Database) ──────────────────────────────────────────────────────
+# RDS (MySQL Database)
 
 # RDS requires subnets in 2 AZs even for a single-AZ deployment
 resource "aws_db_subnet_group" "db_subnet_group" {
@@ -154,7 +152,7 @@ resource "aws_db_instance" "mysql" {
   tags                   = merge(local.tags, { Name = "${local.name}-mysql" })
 }
 
-# ── IAM (EC2 Permissions) ─────────────────────────────────────────────────────
+# IAM (EC2 Permissions)
 # Gives the EC2 instance permission to pull from ECR, write to S3, and read secrets.
 
 resource "aws_iam_role" "k3s_instance_role" {
